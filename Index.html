@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="hi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AI Browser WebApp</title>
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- FontAwesome Icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body class="bg-gray-900 text-gray-100 font-sans flex flex-col h-screen">
+
+  <!-- Header -->
+  <header class="bg-gray-800 p-4 border-b border-gray-700 flex justify-between items-center shadow-md">
+    <h1 class="text-xl font-bold flex items-center gap-2">
+      <i class="fa-solid fa-robot text-blue-500"></i> Smart AI Assistant
+    </h1>
+    <button id="openSettings" class="p-2.5 hover:bg-gray-700 rounded-full transition text-gray-300 hover:text-white" title="Settings">
+      <i class="fa-solid fa-gear text-xl"></i>
+    </button>
+  </header>
+
+  <!-- Chat Box -->
+  <main id="chatBox" class="flex-1 overflow-y-auto p-4 space-y-4 max-w-4xl w-full mx-auto">
+    <div class="bg-gray-800 p-4 rounded-2xl max-w-xl text-sm border border-gray-700 text-gray-300">
+      👋 नमस्ते! ऊपर दिए गए ⚙️ <b>Settings</b> आइकॉन पर क्लिक करके अपनी <b>API Key</b> और <b>Model Name</b> सेट करें, फिर कोई भी सवाल पूछें।
+    </div>
+  </main>
+
+  <!-- Input Form -->
+  <footer class="p-4 bg-gray-800 border-t border-gray-700">
+    <form id="chatForm" class="flex gap-2 max-w-4xl mx-auto">
+      <input type="text" id="userInput" placeholder="यहाँ अपना सवाल लिखें..." required
+             class="flex-1 bg-gray-700 text-white rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-blue-500">
+      <button type="submit" id="sendBtn" class="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-xl font-medium transition flex items-center gap-2">
+        <span>भेजें</span>
+        <i class="fa-solid fa-paper-plane"></i>
+      </button>
+    </form>
+  </footer>
+
+  <!-- Settings Modal -->
+  <div id="settingsModal" class="fixed inset-0 bg-black/70 hidden justify-center items-center p-4 backdrop-blur-sm z-50">
+    <div class="bg-gray-800 rounded-2xl p-6 w-full max-w-md border border-gray-700 shadow-2xl space-y-4">
+      <div class="flex justify-between items-center border-b border-gray-700 pb-3">
+        <h2 class="text-lg font-bold flex items-center gap-2">
+          <i class="fa-solid fa-sliders text-blue-500"></i> AI सेटिंग्स
+        </h2>
+        <button id="closeSettings" class="text-gray-400 hover:text-white text-xl">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+      </div>
+
+      <div>
+        <label class="block text-sm font-medium text-gray-300 mb-1">API Provider</label>
+        <select id="apiType" class="w-full bg-gray-700 border border-gray-600 rounded-xl p-2.5 text-white outline-none focus:ring-2 focus:ring-blue-500">
+          <option value="gemini">Google Gemini API</option>
+          <option value="openai">OpenAI (ChatGPT) API</option>
+        </select>
+      </div>
+
+      <div>
+        <label class="block text-sm font-medium text-gray-300 mb-1">Model Name</label>
+        <input type="text" id="modelInput" placeholder="उदा: gemini-2.5-flash या gpt-4o-mini" 
+               class="w-full bg-gray-700 border border-gray-600 rounded-xl p-2.5 text-white outline-none focus:ring-2 focus:ring-blue-500">
+      </div>
+
+      <div>
+        <label class="block text-sm font-medium text-gray-300 mb-1">API Key</label>
+        <input type="password" id="apiKeyInput" placeholder="अपनी API Key यहाँ डालें" 
+               class="w-full bg-gray-700 border border-gray-600 rounded-xl p-2.5 text-white outline-none focus:ring-2 focus:ring-blue-500">
+      </div>
+
+      <div class="pt-2">
+        <button id="saveSettings" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 rounded-xl transition">
+          सेव करें (Save Settings)
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- JavaScript Code -->
+  <script>
+    // DOM Elements
+    const chatBox = document.getElementById('chatBox');
+    const chatForm = document.getElementById('chatForm');
+    const userInput = document.getElementById('userInput');
+    const sendBtn = document.getElementById('sendBtn');
+    
+    const settingsModal = document.getElementById('settingsModal');
+    const openSettings = document.getElementById('openSettings');
+    const closeSettings = document.getElementById('closeSettings');
+    const saveSettings = document.getElementById('saveSettings');
+    
+    const apiTypeSelect = document.getElementById('apiType');
+    const modelInput = document.getElementById('modelInput');
+    const apiKeyInput = document.getElementById('apiKeyInput');
+
+    // Default Configuration
+    const defaultConfig = {
+      apiType: 'gemini',
+      model: 'gemini-2.5-flash',
+      apiKey: ''
+    };
+
+    // Load Settings from LocalStorage
+    function loadSettings() {
+      const saved = JSON.parse(localStorage.getItem('ai_chat_config')) || defaultConfig;
+      apiTypeSelect.value = saved.apiType || 'gemini';
+      modelInput.value = saved.model || (saved.apiType === 'openai' ? 'gpt-4o-mini' : 'gemini-2.5-flash');
+      apiKeyInput.value = saved.apiKey || '';
+      return saved;
+    }
+
+    // Modal Handlers
+    openSettings.onclick = () => { loadSettings(); settingsModal.classList.remove('hidden'); settingsModal.classList.add('flex'); };
+    closeSettings.onclick = () => { settingsModal.classList.add('hidden'); settingsModal.classList.remove('flex'); };
+    
+    // Switch default model based on selected provider
+    apiTypeSelect.onchange = (e) => {
+      if (e.target.value === 'openai' && !modelInput.value.includes('gpt')) {
+        modelInput.value = 'gpt-4o-mini';
+      } else if (e.target.value === 'gemini' && !modelInput.value.includes('gemini')) {
+        modelInput.value = 'gemini-2.5-flash';
+      }
+    };
+
+    // Save Settings
+    saveSettings.onclick = () => {
+      const config = {
+        apiType: apiTypeSelect.value,
+        model: modelInput.value.trim(),
+        apiKey: apiKeyInput.value.trim()
+      };
+      localStorage.setItem('ai_chat_config', JSON.stringify(config));
+      settingsModal.classList.add('hidden');
+      settingsModal.classList.remove('flex');
+      alert('सेटिंग्स सफलतापूर्वक सेव हो गईं!');
+    };
+
+    // Append Message to UI
+    function appendMessage(sender, text) {
+      const msgDiv = document.createElement('div');
+      msgDiv.className = sender === 'user' 
+        ? 'bg-blue-600 text-white p-4 rounded-2xl max-w-xl ml-auto text-sm shadow-md'
+        : 'bg-gray-800 text-gray-200 p-4 rounded-2xl max-w-xl mr-auto text-sm border border-gray-700 shadow-md space-y-2';
+
+      const parsedText = text.replace(/\n/g, '<br>');
+      msgDiv.innerHTML = `<strong>${sender === 'user' ? 'आप' : 'AI'}:</strong><br><span>${parsedText}</span>`;
+      
+      chatBox.appendChild(msgDiv);
+      chatBox.scrollTop = chatBox.scrollHeight;
+      return msgDiv;
+    }
+
+    // Call API (Gemini or OpenAI)
+    async function fetchAIResponse(prompt) {
+      const config = loadSettings();
+      
+      if (!config.apiKey) {
+        throw new Error('कृपया पहले Settings में जाकर अपनी API Key डालें!');
+      }
+
+      if (config.apiType === 'gemini') {
+        const url = `https://generativelanguage.googleapis.com/v1beta/models/${config.model}:generateContent?key=${config.apiKey}`;
+        const response = await fetch(url, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            contents: [{ parts: [{ text: prompt }] }]
+          })
+        });
+
+        const data = await response.json();
+        if (data.error) throw new Error(data.error.message || 'Gemini API Error');
+        return data.candidates[0].content.parts[0].text;
+
+      } else if (config.apiType === 'openai') {
+        const url = 'https://api.openai.com/v1/chat/completions';
+        const response = await fetch(url, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${config.apiKey}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            model: config.model,
+            messages: [{ role: 'user', content: prompt }]
+          })
+        });
+
+        const data = await response.json();
+        if (data.error) throw new Error(data.error.message || 'OpenAI API Error');
+        return data.choices[0].message.content;
+      }
+    }
+
+    // Form Submit Event
+    chatForm.onsubmit = async (e) => {
+      e.preventDefault();
+      const prompt = userInput.value.trim();
+      if (!prompt) return;
+
+      appendMessage('user', prompt);
+      userInput.value = '';
+
+      const loadingMsg = appendMessage('ai', 'सोच रहा हूँ... ⏳');
+
+      try {
+        const aiResponse = await fetchAIResponse(prompt);
+        loadingMsg.innerHTML = `<strong>AI:</strong><br><span>${aiResponse.replace(/\n/g, '<br>')}</span>`;
+      } catch (err) {
+        loadingMsg.innerHTML = `<strong class="text-red-400">Error:</strong><br><span class="text-red-400">${err.message}</span>`;
+      }
+    };
+
+    // Initial check
+    loadSettings();
+  </script>
+</body>
+</html>
+
